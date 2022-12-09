@@ -1,0 +1,29 @@
+BE Performance Notes
+
+MQTT QoS = 0:
+python Readings_Interface_Stress_Test.py
+Total packets sent: 1000
+Total time taken is 0.176536 seconds
+Average packet rate: 5664.567000498482 packets/second
+Average time per packet: 0.000176536 seconds
+
+MQTT QoS = 2:
+python Readings_Interface_Stress_Test.py
+Total packets sent: 1000
+Total time taken is 0.320998 seconds
+Average packet rate: 3115.284207378239 packets/second
+Average time per packet: 0.000320998 seconds
+
+Synchronous Post Requests using Django development server w/ authentication:
+python Device_API_Stress_Test.py
+Total packets sent: 100
+Total time taken is 25.006383 seconds
+Average packet rate: 3.998978980686651 packets/second
+Average time per packet: 0.25006383 seconds
+
+Synchronous Post Requests using Django development server w/o authentication:
+python Device_API_Stress_Test.py
+Total packets sent: 100
+Total time taken is 9.409825 seconds
+Average packet rate: 10.627190197479763 packets/second
+Average time per packet: 0.09409825 seconds
