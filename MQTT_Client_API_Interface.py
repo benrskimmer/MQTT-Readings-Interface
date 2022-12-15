@@ -28,6 +28,11 @@ flags = parser.parse_args()
 verbose = flags.verbose
 
 
+class BackEndSystemError(Exception):
+    "Raised when we can't send a reading due to a network or server error"
+    pass
+
+
 class Log:
     def __str__(self):
         return "Logging class used to standardize/organize log output"
@@ -111,43 +116,38 @@ def notify_device_if_forwarded_reading_is_faulty(reading, response, error):
     handle_faulty_reading(reading, device_message)
 
 
-def handle_failed_request(reading, error):
+def handle_failed_request(reading, error, queue_if_failed):
     log.error(f"Failed to connect to BE API! - Reason: {error}")
-    queue_reading(reading)
+    if queue_if_failed:
+        queue_reading(reading)
 
 
-def forward_reading(reading):
+def forward_reading(reading, queue_if_failed=True):
     try:
         response = post_reading_to_device_API(reading)
     except requests.exceptions.RequestException as error:
-        handle_failed_request(reading, error)
-        return
+        handle_failed_request(reading, error, queue_if_failed)
+        raise BackEndSystemError
 
     try:
         response.raise_for_status()
     except requests.exceptions.HTTPError as error:
         notify_device_if_forwarded_reading_is_faulty(reading, response, error)
         if is_forwarded_reading_faulty(response) is False:
-            handle_failed_request(reading, error)
-        return
+            handle_failed_request(reading, error, queue_if_failed)
+        raise BackEndSystemError
 
-    log.info(f"Forwarded reading from device: {get_device_id_from_reading(reading)}")
+    if queue_if_failed:
+        log.info(f"Forwarded reading from device: {get_device_id_from_reading(reading)}")
 
 
 def check_and_forward_queued_readings():
     while reading_queue:
+        reading = reading_queue[0]
         try:
-            response = post_reading_to_device_API(reading_queue[0])
-        except requests.exceptions.RequestException:
+            forward_reading(reading, queue_if_failed=False)
+        except BackEndSystemError:
             break
-
-        try:
-            response.raise_for_status()
-        except requests.exceptions.HTTPError as error:
-            notify_device_if_forwarded_reading_is_faulty(reading_queue[0], response, error)
-            if is_forwarded_reading_faulty(response) is False:
-                break
-
         dequeue_reading()
 
 
@@ -179,7 +179,10 @@ def on_message(mqtt_client, userdata, msg):
         handle_faulty_reading(reading, "Check device ID", msg.topic)
         return
 
-    forward_reading(reading)
+    try:
+        forward_reading(reading)
+    except BackEndSystemError:
+        pass
 
 
 mqtt_client = mqtt.Client(client_id="Readings_Interface", clean_session=False)
